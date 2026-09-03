@@ -29,23 +29,16 @@ jobs:
         working-directory: server
         run: |
           npm install
+          node --check app.js
           node --check server.js
           node --check db.js
           node --check seed.js
           node --check reset.js
 
-      - name: Boot the server and hit the health endpoint
+      - name: Run server smoke tests
         working-directory: server
-        run: |
-          DB_PATH=./ci-test.db npm run seed
-          DB_PATH=./ci-test.db node server.js &
-          SERVER_PID=$!
-          for i in $(seq 1 10); do
-            curl -sf http://localhost:4000/api/characters && break
-            sleep 1
-          done
-          curl -sf http://localhost:4000/api/characters
-          kill $SERVER_PID
+        run: npm test
+
 
   # Builds multi-arch images (amd64 for your dev machine, arm64 for the Pi)
   # and pushes them to GitHub Container Registry, so the Pi can just
