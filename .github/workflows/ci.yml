@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # Runs on every push and PR: install deps, build the client, sanity-check
+  # the server. Fast, no Docker involved, catches broken code before we
+  # even try to build images.
+  build-and-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install & build client
+        working-directory: client
+        run: |
+          npm install
+          npm run build
+
+      - name: Install & sanity-check server
+        working-directory: server
+        run: |
+          npm install
+          node --check server.js
+          node --check db.js
+          node --check seed.js
+          node --check reset.js
+
+      - name: Boot the server and hit the health endpoint
+        working-directory: server
+        run: |
+          DB_PATH=./ci-test.db npm run seed
+          DB_PATH=./ci-test.db node server.js &
+          SERVER_PID=$!
+          for i in $(seq 1 10); do
+            curl -sf http://localhost:4000/api/characters && break
+            sleep 1
+          done
+          curl -sf http://localhost:4000/api/characters
+          kill $SERVER_PID
+
+  # Builds multi-arch images (amd64 for your dev machine, arm64 for the Pi)
+  # and pushes them to GitHub Container Registry, so the Pi can just
+  # `docker compose pull` instead of compiling better-sqlite3 on-device.
+  docker-build-push:
+    needs: build-and-check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU (for cross-building arm64 on an amd64 runner)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push server image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./server
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}-server:latest
+            ghcr.io/${{ github.repository }}-server:${{ github.sha }}
+
+      - name: Build & push client image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./client
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}-client:latest
+            ghcr.io/${{ github.repository }}-client:${{ github.sha }}
