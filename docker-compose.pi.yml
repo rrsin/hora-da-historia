@@ -1,10 +1,10 @@
 # Use this on the Raspberry Pi once CI has pushed images to GHCR, so the
 # Pi only has to `docker compose pull` instead of compiling
-# better-sqlite3 on-device. Replace OWNER/REPO with your GitHub
-# owner/repo (lowercase).
+# better-sqlite3 on-device. 
+# rrsin/hora-da-historia (lowercase).
 services:
   server:
-    image: ghcr.io/OWNER/REPO-server:latest
+    image: ghcr.io/rrsin/hora-da-historia-server:latest
     restart: unless-stopped
     volumes:
       - stories-data:/app/data
@@ -15,7 +15,7 @@ services:
       - DB_PATH=/app/data/stories.db
 
   client:
-    image: ghcr.io/OWNER/REPO-client:latest
+    image: ghcr.io/rrsin/hora-da-historia-client:latest
     restart: unless-stopped
     depends_on:
       - server
