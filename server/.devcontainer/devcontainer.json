@@ -1,0 +1,19 @@
+{
+  "name": "Histórias da Noite",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "postCreateCommand": "cd server && npm install && cd ../client && npm install",
+  "forwardPorts": [4000, 5173, 8080],
+  "portsAttributes": {
+    "4000": { "label": "API (server, npm start)" },
+    "5173": { "label": "Client dev server (vite)" },
+    "8080": { "label": "Client (docker compose / nginx)" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["dbaeumer.vscode-eslint", "esbenp.prettier-vscode"]
+    }
+  }
+}
