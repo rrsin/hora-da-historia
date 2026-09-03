@@ -4,7 +4,10 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DB_PATH = path.join(__dirname, 'stories.db');
+// Allow overriding where the SQLite file lives (e.g. a mounted Docker volume
+// on the Pi) without touching any other code.
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'stories.db');
+fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 
 const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
