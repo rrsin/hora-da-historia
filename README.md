@@ -65,6 +65,53 @@ descrições das personagens como contexto), e insere-os através do ecrã
 "Cenários" na app, ou adiciona-os diretamente ao array `scenarios` em
 `seed.js` e corre `npm run reset -- --seed`.
 
+## Docker
+
+Each side has its own `Dockerfile`; `docker-compose.yml` wires them together
+(nginx in the client container proxies `/api/*` to the server container over
+Docker's internal network, so there's no hardcoded hostname).
+
+```bash
+docker compose up --build
+# app on http://localhost:8080, API on http://localhost:4000
+docker compose exec server npm run seed   # first run only
+```
+
+The SQLite file lives on a named volume (`stories-data`), not inside the
+image, so `docker compose down` (without `-v`) keeps your data.
+
+### Getting it onto the Raspberry Pi
+
+Two options:
+
+1. **Build directly on the Pi** — clone the repo, run `docker compose up
+   --build` as above. Simplest, but compiling `better-sqlite3`'s native
+   addon on a Pi is slow (a few minutes).
+2. **Pull prebuilt images from CI** (recommended) — the GitHub Actions
+   pipeline below builds `linux/arm64` images and pushes them to GHCR.
+   On the Pi, edit `docker-compose.pi.yml` to put in your GitHub
+   owner/repo, then:
+   ```bash
+   docker compose -f docker-compose.pi.yml pull
+   docker compose -f docker-compose.pi.yml up -d
+   docker compose -f docker-compose.pi.yml exec server npm run seed
+   ```
+
+## CI/CD (`.github/workflows/ci.yml`)
+
+- **Every push/PR**: installs deps, builds the client, sanity-checks the
+  server files, boots the server against a throwaway SQLite file and hits
+  `/api/characters` to confirm it actually responds.
+- **On push to `main`**: additionally builds multi-arch (`amd64` + `arm64`)
+  Docker images via QEMU/buildx and pushes them to
+  `ghcr.io/<owner>/<repo>-server` and `ghcr.io/<owner>/<repo>-client`.
+  Uses the built-in `GITHUB_TOKEN`, so no extra secrets to configure — just
+  make sure the repo's Actions settings allow package writes (Settings →
+  Actions → General → Workflow permissions → "Read and write").
+  By default GHCR packages are private; either make them public or run
+  `docker login ghcr.io` on the Pi with a personal access token that has
+  `read:packages`.
+
 ## Scripts úteis
 
 | comando (dentro de `server/`) | o que faz |

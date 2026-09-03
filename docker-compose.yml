@@ -1,0 +1,22 @@
+services:
+  server:
+    build: ./server
+    restart: unless-stopped
+    volumes:
+      - stories-data:/app/data
+    ports:
+      - "4000:4000" # optional: exposes the API directly, useful for debugging
+    environment:
+      - PORT=4000
+      - DB_PATH=/app/data/stories.db
+
+  client:
+    build: ./client
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - "8080:80"
+
+volumes:
+  stories-data:
